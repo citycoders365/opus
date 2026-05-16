@@ -2481,6 +2481,7 @@
             busData.forEach(bus => {
                 const d = document.createElement('div');
                 d.className = 'bus-item';
+                d.onclick = () => openLive(bus.plate);
                 d.innerHTML = `
                 <div><b>${bus.plate}</b></div>
                 <div><small>Seats: ${bus.occ}/${bus.occ + bus.emp}</small></div>`;
