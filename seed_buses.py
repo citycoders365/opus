@@ -9,7 +9,9 @@ buses_to_seed = [
     {"bus_id": "AP-16-4023", "total_capacity": 50, "occupied_seats": 0},
     {"bus_id": "AP-16-4024", "total_capacity": 50, "occupied_seats": 0},
     {"bus_id": "AP-16-4025", "total_capacity": 50, "occupied_seats": 0},
-    {"bus_id": "AP-16-4026", "total_capacity": 50, "occupied_seats": 0}
+    {"bus_id": "AP-16-4026", "total_capacity": 50, "occupied_seats": 0},
+    {"bus_id": "AP-16-5001", "total_capacity": 50, "occupied_seats": 0},
+    {"bus_id": "AP-16-5002", "total_capacity": 50, "occupied_seats": 0}
 ]
 
 print("Starting to seed database...")

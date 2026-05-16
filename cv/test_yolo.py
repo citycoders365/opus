@@ -51,12 +51,6 @@ def analyze_bus_image(image_path):
 
     annotated_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output_annotated.jpg")
     cv2.imwrite(annotated_path, img)
-    
-    # Display the result on the screen
-    print(f"Displaying annotated image. Press any key in the image window to close it...", flush=True)
-    cv2.imshow("Annotated Output", img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
 
     result = {
         "total": total_people,

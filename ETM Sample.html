@@ -444,11 +444,13 @@
             stops: ["VIJAYAWADA PNBS", "TADEPALLI", "MANGALAGIRI", "NAMBURU", "PEDDAKAKANI", "GUNTUR RTC"]
         };
         const busList = [
-            { id: "AP-16-1234", plate: "AP16Z-4022" },
-            { id: "AP-16-4023", plate: "AP16Z-4023" },
-            { id: "AP-16-4024", plate: "AP16Z-4024" },
-            { id: "AP-16-4025", plate: "AP16Z-4025" },
-            { id: "AP-16-4026", plate: "AP16Z-4026" }
+            { id: "AP-16-1234", plate: "AP16Z-4022", route: 'vja-gnt' },
+            { id: "AP-16-4023", plate: "AP16Z-4023", route: 'vja-gnt' },
+            { id: "AP-16-4024", plate: "AP16Z-4024", route: 'vja-gnt' },
+            { id: "AP-16-4025", plate: "AP16Z-4025", route: 'vja-gnt' },
+            { id: "AP-16-4026", plate: "AP16Z-4026", route: 'vja-gnt' },
+            { id: "AP-16-5001", plate: "AP16Z-5001", route: 'gnt-vja' },
+            { id: "AP-16-5002", plate: "AP16Z-5002", route: 'gnt-vja' }
         ];
 
         // --- 2. STATE VARIABLES ---
@@ -481,6 +483,9 @@
 
         // --- 4. NAVIGATION LOGIC ---
         function navigate(dir) {
+            const activeBus = busList[currentBusIdx];
+            const isReturnRoute = activeBus.route === 'gnt-vja';
+
             if (step === 0) { // SELECT BUS
                 if (dir === 'down') currentBusIdx = (currentBusIdx + 1) % busList.length;
                 else currentBusIdx = (currentBusIdx - 1 + busList.length) % busList.length;
@@ -490,36 +495,54 @@
                 else currentSourceIdx = (currentSourceIdx - 1 + routeData.stops.length) % routeData.stops.length;
             }
             else if (step === 2) { // SELECT DESTINATION
-                // Logic: Dest must be AFTER Source.
-                // We cycle only through indices > currentSourceIdx
-                let maxIdx = routeData.stops.length;
-                let minIdx = currentSourceIdx + 1;
+                if (!isReturnRoute) {
+                    let maxIdx = routeData.stops.length;
+                    let minIdx = currentSourceIdx + 1;
+                    if (minIdx >= maxIdx) return; // End of line
 
-                if (minIdx >= maxIdx) return; // End of line
-
-                if (dir === 'down') {
-                    currentDestIdx++;
-                    if (currentDestIdx >= maxIdx) currentDestIdx = minIdx;
+                    if (dir === 'down') {
+                        currentDestIdx++;
+                        if (currentDestIdx >= maxIdx) currentDestIdx = minIdx;
+                    } else {
+                        currentDestIdx--;
+                        if (currentDestIdx < minIdx) currentDestIdx = maxIdx - 1;
+                    }
                 } else {
-                    currentDestIdx--;
-                    if (currentDestIdx < minIdx) currentDestIdx = maxIdx - 1;
+                    let maxIdx = currentSourceIdx; // dest must be < source
+                    let minIdx = 0;
+                    if (maxIdx <= minIdx) return; // End of line
+
+                    if (dir === 'down') {
+                        currentDestIdx--;
+                        if (currentDestIdx < minIdx) currentDestIdx = maxIdx - 1;
+                    } else {
+                        currentDestIdx++;
+                        if (currentDestIdx >= maxIdx) currentDestIdx = minIdx;
+                    }
                 }
             }
             updateScreen();
         }
 
         function confirmSelection() {
+            const activeBus = busList[currentBusIdx];
+            const isReturnRoute = activeBus.route === 'gnt-vja';
+
             if (step === 0) {
                 step = 1;
+                currentSourceIdx = isReturnRoute ? routeData.stops.length - 1 : 0;
                 updateScreen();
             } else if (step === 1) {
-                // Cannot select the LAST stop as source
-                if (currentSourceIdx >= routeData.stops.length - 1) {
+                if (!isReturnRoute && currentSourceIdx >= routeData.stops.length - 1) {
+                    alert("Cannot select last stop as boarding point!");
+                    return;
+                }
+                if (isReturnRoute && currentSourceIdx <= 0) {
                     alert("Cannot select last stop as boarding point!");
                     return;
                 }
                 step = 2;
-                currentDestIdx = currentSourceIdx + 1; // Auto-set dest to next stop
+                currentDestIdx = isReturnRoute ? currentSourceIdx - 1 : currentSourceIdx + 1;
                 updateScreen();
             } else if (step === 2) {
                 step = 3;
@@ -615,7 +638,9 @@
                 alert(`Success! Printed ${tktCount} ticket(s) for ${activeBus.plate}.`);
 
                 // Reset to Source Selection
+                const isReturnRoute = activeBus.route === 'gnt-vja';
                 step = 1;
+                currentSourceIdx = isReturnRoute ? routeData.stops.length - 1 : 0;
                 tktCount = 1;
                 updateScreen();
             }

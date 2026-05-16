@@ -2319,7 +2319,7 @@
 
         const busData = [
             {
-                id: 'AP-16-1234', plate: 'AP16Z-4022', time: '08:00 AM', eta: '2 mins', occ: 42, emp: 8, std: 12, startIdx: 9, onTime: 95,
+                id: 'AP-16-1234', plate: 'AP16Z-4022', route: 'vja-gnt', time: '08:00 AM', eta: '2 mins', occ: 42, emp: 8, std: 12, startIdx: 9, onTime: 95,
                 dropoffs: [
                     { stop: 'TADEPALLI', eta: '2 min', count: 8 },
                     { stop: 'MANGALAGIRI', eta: '10 min', count: 11 },
@@ -2329,7 +2329,7 @@
                 ]
             },
             {
-                id: 'AP-16-4023', plate: 'AP16Z-4023', time: '08:15 AM', eta: '7 mins', occ: 20, emp: 30, std: 0, startIdx: 6, onTime: 82,
+                id: 'AP-16-4023', plate: 'AP16Z-4023', route: 'vja-gnt', time: '08:15 AM', eta: '7 mins', occ: 20, emp: 30, std: 0, startIdx: 6, onTime: 82,
                 dropoffs: [
                     { stop: 'MANGALAGIRI', eta: '7 min', count: 5 },
                     { stop: 'NAMBURU', eta: '16 min', count: 7 },
@@ -2338,7 +2338,7 @@
                 ]
             },
             {
-                id: 'AP-16-4024', plate: 'AP16Z-4024', time: '08:30 AM', eta: '15 mins', occ: 50, emp: 0, std: 25, startIdx: 4, onTime: 98,
+                id: 'AP-16-4024', plate: 'AP16Z-4024', route: 'vja-gnt', time: '08:30 AM', eta: '15 mins', occ: 50, emp: 0, std: 25, startIdx: 4, onTime: 98,
                 dropoffs: [
                     { stop: 'NAMBURU', eta: '15 min', count: 18 },
                     { stop: 'PEDDAKAKANI', eta: '26 min', count: 14 },
@@ -2346,7 +2346,7 @@
                 ]
             },
             {
-                id: 'AP-16-4025', plate: 'AP16Z-4025', time: '08:45 AM', eta: '22 mins', occ: 15, emp: 35, std: 0, startIdx: 2, onTime: 76,
+                id: 'AP-16-4025', plate: 'AP16Z-4025', route: 'vja-gnt', time: '08:45 AM', eta: '22 mins', occ: 15, emp: 35, std: 0, startIdx: 2, onTime: 76,
                 dropoffs: [
                     { stop: 'TADEPALLI', eta: '22 min', count: 4 },
                     { stop: 'MANGALAGIRI', eta: '30 min', count: 5 },
@@ -2355,13 +2355,29 @@
                 ]
             },
             {
-                id: 'AP-16-4026', plate: 'AP16Z-4026', time: '09:00 AM', eta: '30 mins', occ: 30, emp: 20, std: 5, startIdx: 0, onTime: 91,
+                id: 'AP-16-4026', plate: 'AP16Z-4026', route: 'vja-gnt', time: '09:00 AM', eta: '30 mins', occ: 30, emp: 20, std: 5, startIdx: 0, onTime: 91,
                 dropoffs: [
                     { stop: 'VIJAYAWADA PNBS', eta: '30 min', count: 9 },
                     { stop: 'TADEPALLI', eta: '38 min', count: 8 },
                     { stop: 'MANGALAGIRI', eta: '46 min', count: 6 },
                     { stop: 'NAMBURU', eta: '57 min', count: 4 },
                     { stop: 'GUNTUR RTC', eta: '80 min', count: 3 }
+                ]
+            },
+            {
+                id: 'AP-16-5001', plate: 'AP16Z-5001', route: 'gnt-vja', time: '10:00 AM', eta: '10 mins', occ: 15, emp: 35, std: 0, startIdx: 12, onTime: 95,
+                dropoffs: [
+                    { stop: 'PEDDAKAKANI', eta: '10 min', count: 5 },
+                    { stop: 'NAMBURU', eta: '20 min', count: 2 },
+                    { stop: 'VIJAYAWADA PNBS', eta: '45 min', count: 8 }
+                ]
+            },
+            {
+                id: 'AP-16-5002', plate: 'AP16Z-5002', route: 'gnt-vja', time: '10:30 AM', eta: '25 mins', occ: 40, emp: 10, std: 0, startIdx: 10, onTime: 88,
+                dropoffs: [
+                    { stop: 'MANGALAGIRI', eta: '25 min', count: 12 },
+                    { stop: 'TADEPALLI', eta: '35 min', count: 18 },
+                    { stop: 'VIJAYAWADA PNBS', eta: '45 min', count: 10 }
                 ]
             }
         ];
@@ -2429,11 +2445,18 @@
             });
         });
 
+        let currentSearchRouteDir = '';
+
         function search() {
             const from = document.getElementById('from-input').value.trim();
             const to = document.getElementById('to-input').value.trim();
             if (!from || !to) { alert('Please select both From and To stops.'); return; }
             if (from === to) { alert('Please choose a destination different from your starting location.'); return; }
+            
+            const fromIdx = allStops.indexOf(from);
+            const toIdx = allStops.indexOf(to);
+            currentSearchRouteDir = fromIdx < toIdx ? 'vja-gnt' : 'gnt-vja';
+
             navigate('user-results');
             document.getElementById('route-tag').textContent = `🚌 ${from}  →  ${to}`;
             renderUserList();
@@ -2446,7 +2469,7 @@
             if (resScreen && !resScreen.classList.contains('active')) return;
 
             list.innerHTML = '';
-            busData.forEach(bus => {
+            busData.filter(bus => bus.route === currentSearchRouteDir).forEach(bus => {
                 const d = document.createElement('div');
                 d.className = 'bus-item';
                 d.onclick = () => openRouteTracking(bus.plate);
