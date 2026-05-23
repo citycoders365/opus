@@ -2809,6 +2809,13 @@
                                     renderDropoffPanel(bus);
                                 }
                             }
+
+                            // Immediately re-render lists so changes reflect instantly without waiting for poll
+                            renderUserList();
+                            const adminDash = document.getElementById('admin-dashboard');
+                            if (adminDash && adminDash.classList.contains('active')) {
+                                renderAdminList();
+                            }
                         }
                     }
                 } catch (err) {

@@ -635,7 +635,12 @@
                 // C. Log
                 addLog(`TICKET: ${tktCount}x [${srcName} -> ${destName}] ON ${activeBus.plate}. Rev: ₹${price}`);
 
-                alert(`Success! Printed ${tktCount} ticket(s) for ${activeBus.plate}.`);
+                // Remove blocking alert to allow instant sync across tabs
+                const screen = document.getElementById('display');
+                if (screen) {
+                    screen.style.backgroundColor = "#bbf7d0";
+                    setTimeout(() => screen.style.backgroundColor = "", 300);
+                }
 
                 // Reset to Source Selection
                 const isReturnRoute = activeBus.route === 'gnt-vja';
