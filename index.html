@@ -2484,7 +2484,7 @@
                     <div style="margin-top:4px;font-size:11px;color:${onTimeColor};font-weight:600;">
                         <i class="fa fa-clock-o"></i> ${bus.onTime}% On-Time
                         <span style="color: ${bus.emp > 0 ? '#64748b' : '#f87171'}; margin-left:8px; display: inline-block;">
-                            <i class="fa fa-user"></i> ${bus.emp > 0 ? bus.emp + ' Seats' : 'Full / Standing'}
+                            <i class="fa fa-user"></i> ${bus.emp > 0 ? bus.emp + ' Seats' : '<span style="background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:10px;">Overcrowded</span>'}
                         </span>
                     </div>
                 </div>
@@ -2519,9 +2519,13 @@
             document.getElementById('stat-occ').innerText = bus.occ;
             document.getElementById('stat-emp').innerText = bus.emp;
 
-            // Only show standing if empty seats is 0
+            // B2G: Admin sees exact standing count, user sees 'Overcrowded' badge
             const liveStd = bus.emp > 0 ? 0 : bus.std;
-            document.getElementById('stat-std').innerText = liveStd;
+            if (currentRole === 'admin') {
+                document.getElementById('stat-std').innerText = liveStd;
+            } else {
+                document.getElementById('stat-std').innerText = liveStd > 0 ? '⚠️' : '0';
+            }
 
             document.getElementById('speed-badge').innerText = '🟡 Moving';
             document.getElementById('live-condition-view').style.display = 'flex';
@@ -2682,19 +2686,33 @@
 
             document.getElementById('info-eta').textContent = bus.eta;
             
-            // Re-purpose 'info-lastupdate' to show the on-time rate for better visibility, since we are dynamically ticking now
-            document.getElementById('info-lastupdate').innerHTML = `<span style="color:${bus.onTime >= 90 ? '#4ade80' : bus.onTime >= 80 ? '#facc15' : '#f87171'}">${bus.onTime}% On-Time</span>`;
+            // Show Last Updated timestamp for user (B2G transparency), on-time for admin
+            if (currentRole === 'admin') {
+                document.getElementById('info-lastupdate').innerHTML = `<span style="color:${bus.onTime >= 90 ? '#4ade80' : bus.onTime >= 80 ? '#facc15' : '#f87171'}">${bus.onTime}% On-Time</span>`;
+            } else {
+                const lastUp = bus.lastUpdated ? new Date(bus.lastUpdated) : new Date();
+                const minsAgo = Math.max(0, Math.round((Date.now() - lastUp.getTime()) / 60000));
+                document.getElementById('info-lastupdate').innerHTML = `<span style="color:#64748b;">🕐 Updated: ${minsAgo === 0 ? 'Just now' : minsAgo + ' min ago'}</span>`;
+            }
 
             // Populate occupancy summary card
             const total = bus.occ + bus.emp;
 
-            // Override standing count: only allow standing if empty seats is 0
+            // B2G Compliance: user sees badge, admin sees exact number
             const actualStd = bus.emp > 0 ? 0 : bus.std;
 
             const pct = Math.round(bus.occ / total * 100);
             document.getElementById('occ-card-occ').textContent = bus.occ;
             document.getElementById('occ-card-emp').textContent = bus.emp;
-            document.getElementById('occ-card-std').textContent = actualStd;
+            if (currentRole === 'admin') {
+                document.getElementById('occ-card-std').textContent = actualStd;
+            } else {
+                document.getElementById('occ-card-std').textContent = actualStd > 0 ? '⚠️' : '0';
+                // Show overcrowded badge on the capacity bar
+                if (actualStd > 0) {
+                    document.getElementById('occ-pct-label').innerHTML = '<span style="color:#ef4444;font-weight:700;">🔴 Overcrowded</span>';
+                }
+            }
             document.getElementById('occ-bar-fill').style.width = pct + '%';
             document.getElementById('occ-pct-label').textContent = pct + '% capacity';
             document.getElementById('occ-d-occ').textContent = `${bus.occ} / ${total}`;
@@ -2830,7 +2848,16 @@
 
             if (document.getElementById('occ-card-occ')) document.getElementById('occ-card-occ').textContent = bus.occ;
             if (document.getElementById('occ-card-emp')) document.getElementById('occ-card-emp').textContent = bus.emp;
-            if (document.getElementById('occ-card-std')) document.getElementById('occ-card-std').textContent = bus.std;
+            if (document.getElementById('occ-card-std')) {
+                if (currentRole === 'admin') {
+                    document.getElementById('occ-card-std').textContent = bus.std;
+                } else {
+                    document.getElementById('occ-card-std').textContent = bus.std > 0 ? '⚠️' : '0';
+                    if (bus.std > 0 && document.getElementById('occ-pct-label')) {
+                        document.getElementById('occ-pct-label').innerHTML = '<span style="color:#ef4444;font-weight:700;">🔴 Overcrowded</span>';
+                    }
+                }
+            }
             if (document.getElementById('occ-bar-fill')) document.getElementById('occ-bar-fill').style.width = pct + '%';
             if (document.getElementById('occ-pct-label')) document.getElementById('occ-pct-label').textContent = pct + '% capacity';
 
@@ -2861,9 +2888,9 @@
                         let bus = activeBuses[idx];
                         
                         bus.occ = state.occupied_seats;
-                        const available = state.total_capacity - state.occupied_seats;
-                        bus.emp = available > 0 ? available : 0;
-                        bus.std = available < 0 ? Math.abs(available) : 0;
+                        bus.emp = state.empty_seats !== undefined ? state.empty_seats : Math.max(0, state.total_capacity - state.occupied_seats);
+                        bus.std = state.standing_count !== undefined ? state.standing_count : Math.max(0, state.occupied_seats - state.total_capacity);
+                        bus.lastUpdated = state.last_updated || state.last_gps_timestamp || new Date().toISOString();
                         
                         if (state.dropoffs && Array.isArray(state.dropoffs)) {
                             // Merge backend dropoffs. Keep local eta if backend returns 'N/A'

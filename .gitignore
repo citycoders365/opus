@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+
+# ML models (too large for git)
+*.pt
+*.onnx
+
+# Temp files
+out.txt
+out2.txt
+*.log
+
+# PPT files (large, use Google Drive)
+TravelloBus_Improved*.pptx
+TravelloBus_Final.pptx
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

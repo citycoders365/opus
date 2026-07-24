@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TravelloBus | GPS Simulator (ESP32)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <style>
+        :root {
+            --deep: #4C1D95;
+            --medium: #7C3AED;
+            --light: #A78BFA;
+            --pale: #EDE9FE;
+            --bg: #F8F7FF;
+            --dark: #1F2937;
+            --gray: #6B7280;
+            --green: #22C55E;
+            --red: #EF4444;
+            --amber: #F59E0B;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body { background: var(--bg); min-height: 100vh; }
+
+        .header {
+            background: var(--deep);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+        }
+        .header i { font-size: 20px; color: var(--light); }
+        .header h1 { font-size: 18px; font-weight: 700; }
+        .header small { color: var(--light); font-size: 11px; display: block; margin-top: 2px; }
+        .header .badge {
+            margin-left: auto;
+            background: var(--medium);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .container { display: flex; height: calc(100vh - 60px); }
+
+        .sidebar {
+            width: 380px;
+            background: white;
+            border-right: 1px solid #E5E7EB;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--pale);
+        }
+        .card h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--medium);
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        select {
+            border: 2px solid var(--pale);
+            background: white;
+            color: var(--dark);
+        }
+
+        .btn-primary {
+            background: var(--green);
+            color: white;
+            border: none;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn-primary:hover { background: #16A34A; transform: translateY(-1px); }
+        .btn-primary:disabled { background: #D1D5DB; cursor: not-allowed; transform: none; }
+
+        .btn-danger {
+            background: var(--red);
+            color: white;
+            border: none;
+        }
+        .btn-secondary {
+            background: var(--pale);
+            color: var(--deep);
+            border: none;
+        }
+
+        .btn-row { display: flex; gap: 8px; }
+        .btn-row button { flex: 1; }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .stat-box {
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #E5E7EB;
+        }
+        .stat-box .val { font-size: 20px; font-weight: 800; color: var(--deep); }
+        .stat-box .label { font-size: 10px; color: var(--gray); margin-top: 2px; }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-indicator.connected { background: #DCFCE7; color: #166534; }
+        .status-indicator.sending { background: #FEF9C3; color: #854D0E; }
+        .status-indicator.stopped { background: #FEE2E2; color: #991B1B; }
+
+        .log-box {
+            background: #1E293B;
+            border-radius: 8px;
+            padding: 12px;
+            height: 160px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #CBD5E1;
+        }
+        .log-box .entry { margin-bottom: 4px; border-left: 2px solid var(--green); padding-left: 6px; }
+        .log-box .entry.error { border-left-color: var(--red); }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        #map { height: 100%; width: 100%; }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--dark);
+        }
+        .speed-control input[type="range"] {
+            flex: 1;
+            accent-color: var(--medium);
+        }
+
+        .stop-badge {
+            background: var(--deep);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; height: auto; }
+            .sidebar { width: 100%; max-height: 50vh; }
+            .map-container { height: 50vh; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <i class="fa-solid fa-satellite"></i>
+        <div>
+            <h1>GPS Simulator</h1>
+            <small>Simulates ESP32 + 4G GPS Unit sending pings to cloud</small>
+        </div>
+        <div class="badge" id="headerStatus">● Idle</div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <!-- Bus Selection -->
+            <div class="card">
+                <h3>📡 Device Configuration</h3>
+                <select id="busSelect">
+                    <option value="AP-16-1234">AP16Z-4022 (Vijayawada → Guntur)</option>
+                    <option value="AP-16-4023">AP16Z-4023 (Vijayawada → Guntur)</option>
+                    <option value="AP-16-4024">AP16Z-4024 (Vijayawada → Guntur)</option>
+                    <option value="AP-16-4025">AP16Z-4025 (Vijayawada → Guntur)</option>
+                    <option value="AP-16-4026">AP16Z-4026 (Vijayawada → Guntur)</option>
+                    <option value="AP-16-5001">AP16Z-5001 (Guntur → Vijayawada)</option>
+                    <option value="AP-16-5002">AP16Z-5002 (Guntur → Vijayawada)</option>
+                </select>
+
+                <div class="speed-control" style="margin-top: 10px;">
+                    <span>🐢</span>
+                    <input type="range" id="speedSlider" min="1" max="10" value="5">
+                    <span>🐇</span>
+                    <span id="speedLabel" style="min-width:50px; text-align:right;">3.0s</span>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="card">
+                <h3>🎮 Controls</h3>
+                <button class="btn-primary" id="btnStart" onclick="startJourney()">
+                    <i class="fa fa-play"></i>&nbsp; Start Journey
+                </button>
+                <div class="btn-row" style="margin-top: 8px;">
+                    <button class="btn-secondary" id="btnPause" onclick="pauseJourney()" disabled>
+                        <i class="fa fa-pause"></i> Pause
+                    </button>
+                    <button class="btn-danger" id="btnReset" onclick="resetJourney()" disabled>
+                        <i class="fa fa-rotate-left"></i> Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Live Stats -->
+            <div class="card">
+                <h3>📊 Live Telemetry</h3>
+                <div id="statusBadge" class="status-indicator stopped">
+                    <i class="fa fa-circle"></i> Stopped
+                </div>
+                <div class="stat-grid" style="margin-top: 10px;">
+                    <div class="stat-box">
+                        <div class="val" id="pingCount">0</div>
+                        <div class="label">Pings Sent</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="val" id="currentStop">—</div>
+                        <div class="label">Current Stop</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="val" id="stopIndex">—</div>
+                        <div class="label">Stop Index</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="val" id="distMeters">—</div>
+                        <div class="label">Dist to Stop (m)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Log -->
+            <div class="card">
+                <h3>📋 System Log</h3>
+                <div class="log-box" id="logBox">
+                    <div class="entry">GPS Simulator initialized. Select bus and start journey.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        //  CONFIGURATION: SET THIS BEFORE HOSTING!
+        // ==========================================
+        const BACKEND_URL = "https://prototype2-qqw6.onrender.com";
+        // ==========================================
+
+        // Route stops with REAL GPS coordinates
+        const STOPS = [
+            { index: 0, name: "VIJAYAWADA PNBS", lat: 16.5089, lng: 80.6156 },
+            { index: 1, name: "TADEPALLI",       lat: 16.4803, lng: 80.6188 },
+            { index: 2, name: "MANGALAGIRI",     lat: 16.4122, lng: 80.5584 },
+            { index: 3, name: "NAMBURU",         lat: 16.3626, lng: 80.5000 },
+            { index: 4, name: "PEDDAKAKANI",     lat: 16.3400, lng: 80.4908 },
+            { index: 5, name: "GUNTUR RTC",      lat: 16.2956, lng: 80.4561 },
+        ];
+
+        // Generate interpolated waypoints between stops for smooth movement
+        function interpolateRoute(stops, pointsPerSegment = 8) {
+            const waypoints = [];
+            for (let i = 0; i < stops.length - 1; i++) {
+                const s = stops[i], e = stops[i + 1];
+                for (let j = 0; j <= pointsPerSegment; j++) {
+                    const t = j / pointsPerSegment;
+                    waypoints.push({
+                        lat: s.lat + (e.lat - s.lat) * t + (Math.random() - 0.5) * 0.001,
+                        lng: s.lng + (e.lng - s.lng) * t + (Math.random() - 0.5) * 0.001,
+                        nearStop: j === 0 ? s.name : (j === pointsPerSegment ? e.name : null),
+                    });
+                }
+            }
+            return waypoints;
+        }
+
+        const WAYPOINTS = interpolateRoute(STOPS);
+
+        // State
+        let map, busMarker, routeLine;
+        let waypointIdx = 0;
+        let pingCount = 0;
+        let timer = null;
+        let isPaused = false;
+
+        // Initialize Map
+        function initMap() {
+            map = L.map('map', { zoomControl: true }).setView([16.4, 80.53], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // Draw route line
+            const coords = STOPS.map(s => [s.lat, s.lng]);
+            routeLine = L.polyline(coords, {
+                color: '#7C3AED', weight: 4, opacity: 0.6, dashArray: '10 6'
+            }).addTo(map);
+
+            // Mark stops
+            STOPS.forEach((stop, i) => {
+                const isFirst = i === 0, isLast = i === STOPS.length - 1;
+                const color = isFirst ? '#22C55E' : isLast ? '#EF4444' : '#7C3AED';
+                
+                L.circleMarker([stop.lat, stop.lng], {
+                    radius: 8, fillColor: color, color: 'white',
+                    weight: 2, opacity: 1, fillOpacity: 0.9,
+                }).addTo(map).bindTooltip(
+                    `<b>${stop.name}</b><br>Index: ${stop.index}`,
+                    { permanent: false, direction: 'top', className: 'stop-tooltip' }
+                );
+
+                // Labels for first/last
+                if (isFirst || isLast) {
+                    L.marker([stop.lat, stop.lng], {
+                        icon: L.divIcon({
+                            className: '',
+                            html: `<div style="background:${color};color:white;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;white-space:nowrap;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${isFirst ? '🟢' : '🔴'} ${stop.name}</div>`,
+                            iconAnchor: [50, -10],
+                        })
+                    }).addTo(map);
+                }
+            });
+
+            // Bus marker
+            const busIcon = L.divIcon({
+                className: '',
+                html: `<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));">🚌</div>`,
+                iconSize: [32, 32], iconAnchor: [16, 16],
+            });
+            busMarker = L.marker([STOPS[0].lat, STOPS[0].lng], { icon: busIcon }).addTo(map);
+
+            map.fitBounds(routeLine.getBounds().pad(0.1));
+        }
+
+        // Logging
+        function log(msg, isError = false) {
+            const box = document.getElementById('logBox');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = 'entry' + (isError ? ' error' : '');
+            div.innerHTML = `<span style="color:#64748b">${time}</span> ${msg}`;
+            box.prepend(div);
+            // Keep log manageable
+            if (box.children.length > 100) box.removeChild(box.lastChild);
+        }
+
+        function setStatus(type, text) {
+            const badge = document.getElementById('statusBadge');
+            badge.className = 'status-indicator ' + type;
+            badge.innerHTML = `<i class="fa fa-circle"></i> ${text}`;
+            document.getElementById('headerStatus').textContent = '● ' + text;
+        }
+
+        // Send GPS ping to backend
+        async function sendPing(lat, lng) {
+            const busId = document.getElementById('busSelect').value;
+            try {
+                setStatus('sending', 'Sending ping...');
+                const res = await fetch(`${BACKEND_URL}/api/gps_ping`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bus_id: busId, lat, lng }),
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    pingCount++;
+                    document.getElementById('pingCount').textContent = pingCount;
+                    document.getElementById('currentStop').textContent = data.nearest_stop?.split(' ')[0] || '—';
+                    document.getElementById('stopIndex').textContent = data.stop_index;
+                    document.getElementById('distMeters').textContent = data.distance_m;
+                    setStatus('connected', `Tracking (${data.nearest_stop})`);
+                    log(`📡 Ping #${pingCount} → <b>${data.nearest_stop}</b> (idx:${data.stop_index}, ${data.distance_m}m)`);
+                } else {
+                    setStatus('stopped', 'Backend error');
+                    log(`❌ Backend returned ${res.status}`, true);
+                }
+            } catch (err) {
+                setStatus('stopped', 'Connection failed');
+                log(`❌ ${err.message}`, true);
+            }
+        }
+
+        // Journey controls
+        function getIntervalMs() {
+            const val = document.getElementById('speedSlider').value;
+            return (11 - val) * 500 + 500; // 5500ms (slow) to 1000ms (fast)
+        }
+
+        function startJourney() {
+            if (timer) return;
+            isPaused = false;
+            
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnPause').disabled = false;
+            document.getElementById('btnReset').disabled = false;
+            document.getElementById('busSelect').disabled = true;
+
+            log('🚀 Journey started for ' + document.getElementById('busSelect').selectedOptions[0].text);
+            setStatus('connected', 'Tracking...');
+            tick();
+        }
+
+        function tick() {
+            if (isPaused) return;
+            if (waypointIdx >= WAYPOINTS.length) {
+                log('🏁 Journey complete! Bus reached destination.');
+                setStatus('connected', 'Journey Complete');
+                clearTimeout(timer);
+                timer = null;
+                return;
+            }
+
+            const wp = WAYPOINTS[waypointIdx];
+            busMarker.setLatLng([wp.lat, wp.lng]);
+            map.panTo([wp.lat, wp.lng], { animate: true, duration: 0.8 });
+
+            if (wp.nearStop) {
+                log(`🚏 Approaching: <b>${wp.nearStop}</b>`);
+            }
+
+            sendPing(wp.lat, wp.lng);
+            waypointIdx++;
+
+            timer = setTimeout(tick, getIntervalMs());
+        }
+
+        function pauseJourney() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('btnPause');
+            if (isPaused) {
+                btn.innerHTML = '<i class="fa fa-play"></i> Resume';
+                setStatus('stopped', 'Paused');
+                log('⏸️ Journey paused');
+            } else {
+                btn.innerHTML = '<i class="fa fa-pause"></i> Pause';
+                setStatus('connected', 'Resumed');
+                log('▶️ Journey resumed');
+                tick();
+            }
+        }
+
+        function resetJourney() {
+            isPaused = false;
+            clearTimeout(timer);
+            timer = null;
+            waypointIdx = 0;
+            pingCount = 0;
+
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnPause').disabled = true;
+            document.getElementById('btnPause').innerHTML = '<i class="fa fa-pause"></i> Pause';
+            document.getElementById('btnReset').disabled = true;
+            document.getElementById('busSelect').disabled = false;
+            document.getElementById('pingCount').textContent = '0';
+            document.getElementById('currentStop').textContent = '—';
+            document.getElementById('stopIndex').textContent = '—';
+            document.getElementById('distMeters').textContent = '—';
+
+            busMarker.setLatLng([STOPS[0].lat, STOPS[0].lng]);
+            map.fitBounds(routeLine.getBounds().pad(0.1));
+
+            setStatus('stopped', 'Reset');
+            log('🔄 Journey reset');
+        }
+
+        // Speed slider update
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            const ms = (11 - e.target.value) * 500 + 500;
+            document.getElementById('speedLabel').textContent = (ms / 1000).toFixed(1) + 's';
+        });
+        // Init display
+        document.getElementById('speedLabel').textContent = 
+            ((11 - document.getElementById('speedSlider').value) * 500 + 500) / 1000 + 's';
+
+        // Boot
+        initMap();
+    </script>
+</body>
+</html>

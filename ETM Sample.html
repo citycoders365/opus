@@ -395,6 +395,8 @@
                 <span
                     style="font-size: 0.8em; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px;">●
                     Connected to ETM</span>
+                <span id="syncBadge"
+                    style="font-size: 0.8em; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">✓ Synced</span>
             </div>
         </div>
 
@@ -437,6 +439,95 @@
         // Local testing: "http://localhost:8000"
         // Production hosting: "https://your-render-app-name.onrender.com"
         const BACKEND_URL = "https://prototype2-qqw6.onrender.com";
+        // ==========================================
+
+        // ==========================================
+        //  OFFLINE BUFFER QUEUE (P2)
+        //  Survives Render cold-starts & network drops
+        // ==========================================
+        const TicketQueue = {
+            KEY: 'etm_ticket_queue',
+
+            getQueue() {
+                try { return JSON.parse(localStorage.getItem(this.KEY)) || []; }
+                catch { return []; }
+            },
+
+            saveQueue(q) {
+                localStorage.setItem(this.KEY, JSON.stringify(q));
+                this.updateBadge();
+            },
+
+            enqueue(payload) {
+                const q = this.getQueue();
+                q.push({ payload, timestamp: Date.now(), retries: 0 });
+                this.saveQueue(q);
+            },
+
+            async flush() {
+                const q = this.getQueue();
+                if (q.length === 0) return;
+
+                const remaining = [];
+                for (const item of q) {
+                    try {
+                        const res = await fetch(`${BACKEND_URL}/api/issue_ticket`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(item.payload),
+                        });
+                        if (res.ok) {
+                            addLog(`SYNC: Queued ticket sent ✓ [${item.payload.origin} → ${item.payload.destination}]`);
+                        } else {
+                            item.retries++;
+                            remaining.push(item);
+                        }
+                    } catch (err) {
+                        item.retries++;
+                        remaining.push(item);
+                    }
+                }
+                this.saveQueue(remaining);
+            },
+
+            updateBadge() {
+                const badge = document.getElementById('syncBadge');
+                if (!badge) return;
+                const q = this.getQueue();
+                if (q.length === 0) {
+                    badge.textContent = '✓ Synced';
+                    badge.style.background = '#dcfce7';
+                    badge.style.color = '#166534';
+                } else {
+                    badge.textContent = `⏳ ${q.length} Queued`;
+                    badge.style.background = '#fef9c3';
+                    badge.style.color = '#854d0e';
+                }
+            },
+
+            async sendOrQueue(payload) {
+                try {
+                    const res = await fetch(`${BACKEND_URL}/api/issue_ticket`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    this.updateBadge();
+                    return true;
+                } catch (err) {
+                    console.warn('Backend unavailable, queuing ticket:', err.message);
+                    this.enqueue(payload);
+                    addLog(`QUEUED: Ticket saved offline (${err.message})`);
+                    return false;
+                }
+            }
+        };
+
+        // Retry queued tickets every 10 seconds
+        setInterval(() => TicketQueue.flush(), 10000);
+        // Flush on page load in case there are leftovers
+        setTimeout(() => { TicketQueue.flush(); TicketQueue.updateBadge(); }, 2000);
         // ==========================================
 
         // --- 1. CONFIGURATION ---
@@ -610,17 +701,13 @@
 
                 const activeBus = busList[currentBusIdx];
 
-                // -> Send Payload to FastAPI Backend
-                fetch(`${BACKEND_URL}/api/issue_ticket`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        bus_id: activeBus.id, // Dynamic based on selection
-                        origin: srcName,
-                        destination: destName,
-                        ticket_count: tktCount
-                    })
-                }).catch(err => console.error("Error sending ticket to backend:", err));
+                // -> Send Payload via Offline-Resilient Queue
+                TicketQueue.sendOrQueue({
+                    bus_id: activeBus.id,
+                    origin: srcName,
+                    destination: destName,
+                    ticket_count: tktCount
+                });
 
                 // -> Notify index.html on the same browser via localStorage
                 localStorage.setItem('etmNewEvent', JSON.stringify({

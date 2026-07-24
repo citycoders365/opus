@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TravelloBus | Depot Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <style>
+        :root {
+            --deep: #4C1D95;
+            --medium: #7C3AED;
+            --bright: #6D28D9;
+            --light: #A78BFA;
+            --pale: #EDE9FE;
+            --bg: #F8F7FF;
+            --dark: #1F2937;
+            --gray: #6B7280;
+            --light-gray: #E5E7EB;
+            --green: #22C55E;
+            --red: #EF4444;
+            --amber: #F59E0B;
+            --white: #FFFFFF;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body { background: var(--bg); min-height: 100vh; color: var(--dark); }
+
+        /* === HEADER === */
+        .top-bar {
+            background: var(--deep);
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(76, 29, 149, 0.3);
+        }
+        .top-bar .logo { font-size: 18px; font-weight: 800; }
+        .top-bar .logo span { color: var(--light); }
+        .top-bar .divider { width: 1px; height: 24px; background: var(--light); opacity: 0.3; }
+        .top-bar .subtitle { font-size: 12px; color: var(--light); }
+        .top-bar .live-dot {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #86EFAC;
+            font-weight: 600;
+        }
+        .top-bar .live-dot::before {
+            content: '';
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #22C55E;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* === LAYOUT === */
+        .dashboard { padding: 20px 28px; max-width: 1400px; margin: 0 auto; }
+
+        /* === STAT CARDS === */
+        .stat-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 14px;
+            padding: 18px;
+            border: 1px solid var(--pale);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(124, 58, 237, 0.1); }
+        .stat-card .label { font-size: 11px; color: var(--gray); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .stat-card .value { font-size: 32px; font-weight: 800; color: var(--deep); margin-top: 4px; }
+        .stat-card .sub { font-size: 11px; color: var(--gray); margin-top: 2px; }
+        .stat-card.ghost { border-left: 4px solid var(--amber); }
+        .stat-card.danger { border-left: 4px solid var(--red); }
+
+        /* === SECTION === */
+        .section {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid var(--pale);
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--deep);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section h2 i { color: var(--medium); }
+
+        /* === FLEET TABLE === */
+        .fleet-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .fleet-table th {
+            text-align: left;
+            color: var(--gray);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 10px 12px;
+            border-bottom: 2px solid var(--pale);
+            position: sticky;
+            top: 0;
+            background: white;
+        }
+        .fleet-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #F9FAFB;
+            vertical-align: middle;
+        }
+        .fleet-table tr:hover { background: var(--bg); }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .badge-green { background: #DCFCE7; color: #166534; }
+        .badge-amber { background: #FEF3C7; color: #92400E; }
+        .badge-red { background: #FEE2E2; color: #991B1B; }
+
+        .util-bar {
+            width: 80px;
+            height: 6px;
+            background: #F1F5F9;
+            border-radius: 3px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        .util-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        /* === GHOST ROUTE CARD === */
+        .ghost-card {
+            background: #FFFBEB;
+            border: 1px solid #FDE68A;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .ghost-card .icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            background: #FEF3C7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+        .ghost-card .info { flex: 1; }
+        .ghost-card .info h4 { font-size: 14px; font-weight: 700; color: #92400E; }
+        .ghost-card .info p { font-size: 11px; color: #A16207; margin-top: 2px; }
+        .ghost-card .savings {
+            text-align: right;
+            font-size: 20px;
+            font-weight: 800;
+            color: #B45309;
+        }
+        .ghost-card .savings small { display: block; font-size: 10px; font-weight: 500; color: #A16207; }
+
+        /* === MAP === */
+        #admin-map {
+            height: 350px;
+            border-radius: 12px;
+            border: 1px solid var(--pale);
+        }
+
+        /* === LOG === */
+        .log-scroll {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            background: #1E293B;
+            border-radius: 10px;
+            padding: 14px;
+            color: #CBD5E1;
+        }
+        .log-scroll .entry {
+            margin-bottom: 4px;
+            border-left: 2px solid var(--green);
+            padding-left: 8px;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .two-col { grid-template-columns: 1fr; }
+            .stat-row { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="top-bar">
+        <i class="fa-solid fa-bus" style="font-size:18px;color:var(--light);"></i>
+        <div class="logo">Travello<span>Bus</span></div>
+        <div class="divider"></div>
+        <div class="subtitle">Depot Admin Dashboard — Vijayawada Region</div>
+        <div class="live-dot" id="liveStatus">Live — Polling every 5s</div>
+    </div>
+
+    <div class="dashboard">
+        <!-- STAT CARDS -->
+        <div class="stat-row">
+            <div class="stat-card">
+                <div class="label">Total Buses</div>
+                <div class="value" id="s-total">—</div>
+                <div class="sub">Active fleet</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Passengers</div>
+                <div class="value" id="s-passengers">—</div>
+                <div class="sub">Currently on board</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Revenue (Today)</div>
+                <div class="value" id="s-revenue">—</div>
+                <div class="sub">@ ₹35/ticket</div>
+            </div>
+            <div class="stat-card danger">
+                <div class="label">Overcrowded Buses</div>
+                <div class="value" id="s-overcrowded">—</div>
+                <div class="sub">Standing passengers detected</div>
+            </div>
+            <div class="stat-card ghost">
+                <div class="label">Ghost Routes</div>
+                <div class="value" id="s-ghosts">—</div>
+                <div class="sub">Below 20% utilization</div>
+            </div>
+        </div>
+
+        <!-- FLEET TABLE -->
+        <div class="section">
+            <h2><i class="fa fa-table-cells"></i> Fleet Overview</h2>
+            <table class="fleet-table">
+                <thead>
+                    <tr>
+                        <th>Bus ID</th>
+                        <th>Route</th>
+                        <th>Current Stop</th>
+                        <th>Occupied</th>
+                        <th>Standing</th>
+                        <th>Utilization</th>
+                        <th>Status</th>
+                        <th>Last GPS</th>
+                    </tr>
+                </thead>
+                <tbody id="fleetBody"></tbody>
+            </table>
+        </div>
+
+        <div class="two-col">
+            <!-- GHOST ROUTES -->
+            <div class="section">
+                <h2><i class="fa fa-ghost"></i> Ghost Route Alerts</h2>
+                <div id="ghostContainer">
+                    <p style="color:var(--gray);font-size:12px;">Loading...</p>
+                </div>
+            </div>
+
+            <!-- LIVE MAP -->
+            <div class="section">
+                <h2><i class="fa fa-map-location-dot"></i> Live Fleet Map</h2>
+                <div id="admin-map"></div>
+            </div>
+        </div>
+
+        <!-- AUDIT LOG -->
+        <div class="section">
+            <h2><i class="fa fa-list-check"></i> Recent Ticket Events</h2>
+            <div class="log-scroll" id="auditLog">
+                <div class="entry">Dashboard initialized. Waiting for data...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        //  CONFIGURATION
+        // ==========================================
+        const BACKEND_URL = "https://prototype2-qqw6.onrender.com";
+        // ==========================================
+
+        const STOPS = [
+            { index: 0, name: "VIJAYAWADA PNBS", lat: 16.5089, lng: 80.6156 },
+            { index: 1, name: "TADEPALLI",       lat: 16.4803, lng: 80.6188 },
+            { index: 2, name: "MANGALAGIRI",     lat: 16.4122, lng: 80.5584 },
+            { index: 3, name: "NAMBURU",         lat: 16.3626, lng: 80.5000 },
+            { index: 4, name: "PEDDAKAKANI",     lat: 16.3400, lng: 80.4908 },
+            { index: 5, name: "GUNTUR RTC",      lat: 16.2956, lng: 80.4561 },
+        ];
+
+        let map, busMarkers = {};
+
+        // ── INIT MAP ──
+        function initMap() {
+            map = L.map('admin-map', { zoomControl: true }).setView([16.4, 80.53], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // Route line
+            const coords = STOPS.map(s => [s.lat, s.lng]);
+            L.polyline(coords, { color: '#7C3AED', weight: 3, opacity: 0.4, dashArray: '8 5' }).addTo(map);
+
+            // Stop markers
+            STOPS.forEach(stop => {
+                L.circleMarker([stop.lat, stop.lng], {
+                    radius: 5, fillColor: '#7C3AED', color: 'white',
+                    weight: 2, fillOpacity: 0.8,
+                }).addTo(map).bindTooltip(stop.name, { direction: 'top' });
+            });
+        }
+
+        // ── UPDATE MAP MARKERS ──
+        function updateMapMarkers(fleet) {
+            fleet.forEach(bus => {
+                if (!bus.last_gps_lat || !bus.last_gps_lng) return;
+
+                const pos = [bus.last_gps_lat, bus.last_gps_lng];
+                const color = bus.standing_count > 0 ? '#EF4444' :
+                              bus.is_ghost ? '#F59E0B' : '#22C55E';
+
+                if (busMarkers[bus.bus_id]) {
+                    busMarkers[bus.bus_id].setLatLng(pos);
+                    busMarkers[bus.bus_id].setTooltipContent(
+                        `<b>${bus.bus_id}</b><br>At: ${bus.current_stop_name}<br>On board: ${bus.total_on_board}/${bus.total_capacity}`
+                    );
+                } else {
+                    const marker = L.circleMarker(pos, {
+                        radius: 10, fillColor: color, color: 'white',
+                        weight: 2, fillOpacity: 0.9,
+                    }).addTo(map).bindTooltip(
+                        `<b>${bus.bus_id}</b><br>At: ${bus.current_stop_name}<br>On board: ${bus.total_on_board}/${bus.total_capacity}`,
+                        { direction: 'top' }
+                    );
+                    busMarkers[bus.bus_id] = marker;
+                }
+            });
+        }
+
+        // ── FLEET TABLE ──
+        function renderFleet(fleet) {
+            const tbody = document.getElementById('fleetBody');
+            tbody.innerHTML = '';
+
+            fleet.forEach(bus => {
+                const util = bus.utilization_pct;
+                const barColor = util > 100 ? '#EF4444' : util > 70 ? '#F59E0B' : '#22C55E';
+                const statusBadge = bus.standing_count > 0
+                    ? '<span class="badge badge-red">🔴 Overcrowded</span>'
+                    : bus.is_ghost
+                    ? '<span class="badge badge-amber">👻 Ghost</span>'
+                    : '<span class="badge badge-green">✓ Normal</span>';
+
+                const lastGps = bus.last_gps_timestamp
+                    ? new Date(bus.last_gps_timestamp).toLocaleTimeString()
+                    : '—';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><b>${bus.bus_id}</b></td>
+                    <td>${bus.route_id}</td>
+                    <td>${bus.current_stop_name}</td>
+                    <td>${bus.occupied_seats} / ${bus.total_capacity}</td>
+                    <td style="color:${bus.standing_count > 0 ? '#EF4444' : '#6B7280'};font-weight:${bus.standing_count > 0 ? '700' : '400'};">
+                        ${bus.standing_count}
+                    </td>
+                    <td>
+                        <div class="util-bar"><div class="util-bar-fill" style="width:${Math.min(util, 100)}%;background:${barColor};"></div></div>
+                        ${util}%
+                    </td>
+                    <td>${statusBadge}</td>
+                    <td style="font-size:11px;color:var(--gray);">${lastGps}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // ── GHOST ROUTE CARDS ──
+        function renderGhosts(ghosts) {
+            const container = document.getElementById('ghostContainer');
+            if (!ghosts || ghosts.length === 0) {
+                container.innerHTML = '<p style="color:#166534;font-size:12px;text-align:center;padding:20px;">✅ No ghost routes detected. All buses are running at healthy utilization.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            ghosts.forEach(g => {
+                container.innerHTML += `
+                    <div class="ghost-card">
+                        <div class="icon">👻</div>
+                        <div class="info">
+                            <h4>${g.bus_id} — ${g.route_id}</h4>
+                            <p>At: ${g.current_stop_name} | Utilization: ${g.utilization_pct}% | ${g.total_on_board}/${g.total_capacity} passengers</p>
+                            <p style="margin-top:4px;font-style:italic;">${g.recommendation}</p>
+                        </div>
+                        <div class="savings">
+                            ₹${g.estimated_daily_diesel?.toLocaleString() || '1,500'}
+                            <small>est. daily diesel waste</small>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // ── STAT CARDS ──
+        function updateStats(fleet, ghosts) {
+            document.getElementById('s-total').textContent = fleet.length;
+
+            const totalPax = fleet.reduce((s, b) => s + b.total_on_board, 0);
+            document.getElementById('s-passengers').textContent = totalPax;
+            document.getElementById('s-revenue').textContent = '₹' + (totalPax * 35).toLocaleString();
+
+            const overcrowded = fleet.filter(b => b.standing_count > 0).length;
+            document.getElementById('s-overcrowded').textContent = overcrowded;
+
+            document.getElementById('s-ghosts').textContent = ghosts.length;
+        }
+
+        // ── AUDIT LOG ──
+        function addAuditEntry(msg) {
+            const log = document.getElementById('auditLog');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = 'entry';
+            div.innerHTML = `<span style="color:#64748b">${time}</span> ${msg}`;
+            log.prepend(div);
+            if (log.children.length > 50) log.removeChild(log.lastChild);
+        }
+
+        // ── MAIN POLLING LOOP ──
+        let prevPassengers = null;
+
+        async function pollDashboard() {
+            try {
+                const [fleetRes, ghostRes] = await Promise.all([
+                    fetch(`${BACKEND_URL}/api/admin/fleet`),
+                    fetch(`${BACKEND_URL}/api/admin/ghost_routes`),
+                ]);
+
+                if (fleetRes.ok && ghostRes.ok) {
+                    const fleetData = await fleetRes.json();
+                    const ghostData = await ghostRes.json();
+
+                    renderFleet(fleetData.fleet);
+                    renderGhosts(ghostData.ghosts);
+                    updateStats(fleetData.fleet, ghostData.ghosts);
+                    updateMapMarkers(fleetData.fleet);
+
+                    // Log changes
+                    const currPax = fleetData.fleet.reduce((s, b) => s + b.total_on_board, 0);
+                    if (prevPassengers !== null && currPax !== prevPassengers) {
+                        addAuditEntry(`📊 Passenger count changed: ${prevPassengers} → <b>${currPax}</b>`);
+                    }
+                    prevPassengers = currPax;
+
+                    document.getElementById('liveStatus').textContent = 'Live — Updated ' + new Date().toLocaleTimeString();
+                } else {
+                    document.getElementById('liveStatus').textContent = '⚠️ Backend error';
+                    addAuditEntry('❌ Backend returned an error');
+                }
+            } catch (err) {
+                document.getElementById('liveStatus').textContent = '🔴 Disconnected';
+                addAuditEntry(`❌ Connection failed: ${err.message}`);
+            }
+        }
+
+        // ── BOOT ──
+        initMap();
+        pollDashboard();
+        setInterval(pollDashboard, 5000);
+    </script>
+</body>
+</html>
