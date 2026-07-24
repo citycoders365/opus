@@ -1,0 +1,18 @@
+# Render Blueprint — TravelloBus Backend
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: travellobus-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SUPABASE_URL
+        value: https://ybprjrgzddgllanpjxnx.supabase.co
+      - key: SUPABASE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicHJqcmd6ZGRnbGxhbnBqeG54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4NjA5NjAsImV4cCI6MjEwMDQzNjk2MH0.RJr17-e7Ua6XeakTGmhsJyU9ywty0TTfzCKK4RHyeUo
+      - key: PYTHON_VERSION
+        value: "3.11"
+    plan: free
+    autoDeploy: true
